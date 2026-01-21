@@ -40,12 +40,16 @@ export type VaultHoster = {
     name: string;
     url: string;
     notes: string;
+    updatedAt?: string;
+    deletedAt?: string | null;
 };
 
 export type VaultCurrency = {
     id: string;
     name: string;
     symbol: string;
+    updatedAt?: string;
+    deletedAt?: string | null;
 };
 
 export type VaultRecord = {
@@ -70,6 +74,8 @@ export type VaultRecord = {
     emailLogin: string;
     emailPassword: string;
     notes: string;
+    updatedAt?: string;
+    deletedAt?: string | null;
 };
 
 type EncryptedVault = {
@@ -246,14 +252,59 @@ export async function exportVaultText(id: string, password: string): Promise<str
     return formatVaultAsText(payload);
 }
 
+type SyncEntity = {
+    id: string;
+    updatedAt?: string;
+    deletedAt?: string | null;
+};
+
+function parseTimestamp(value?: string | null): number {
+    if (!value) return 0;
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function latestEntityTimestamp(entity: SyncEntity): number {
+    return Math.max(parseTimestamp(entity.updatedAt), parseTimestamp(entity.deletedAt));
+}
+
+function mergeEntityLists<T extends SyncEntity>(local: T[], incoming: T[]): T[] {
+    const merged = new Map<string, T>();
+    for (const entity of local) {
+        merged.set(entity.id, entity);
+    }
+    for (const entity of incoming) {
+        const existing = merged.get(entity.id);
+        if (!existing) {
+            merged.set(entity.id, entity);
+            continue;
+        }
+        const existingTimestamp = latestEntityTimestamp(existing);
+        const incomingTimestamp = latestEntityTimestamp(entity);
+        merged.set(entity.id, incomingTimestamp >= existingTimestamp ? entity : existing);
+    }
+    return Array.from(merged.values());
+}
+
+export function mergeVaultPayload(local: VaultPayload, incoming: VaultPayload): VaultPayload {
+    return {
+        records: mergeEntityLists(local.records ?? [], incoming.records ?? []),
+        hosters: mergeEntityLists(local.hosters ?? [], incoming.hosters ?? []),
+        currencies: mergeEntityLists(local.currencies ?? [], incoming.currencies ?? []),
+    };
+}
+
 function formatVaultAsText(payload: VaultPayload): string {
     if (!Array.isArray(payload.records)) {
         return JSON.stringify(payload, null, 2);
     }
     const lines: string[] = [];
-    if (payload.hosters.length) {
+    const hosters = payload.hosters.filter((hoster) => !hoster.deletedAt);
+    const currencies = payload.currencies.filter((currency) => !currency.deletedAt);
+    const records = payload.records.filter((record) => !record.deletedAt);
+    if (hosters.length) {
         lines.push("Hosters:");
-        payload.hosters.forEach((hoster) => {
+        hosters.forEach((hoster) => {
             lines.push(`- ${hoster.name}`);
             lines.push(`  URL: ${hoster.url}`);
             if (hoster.notes) {
@@ -262,15 +313,15 @@ function formatVaultAsText(payload: VaultPayload): string {
         });
         lines.push("");
     }
-    if (payload.currencies.length) {
+    if (currencies.length) {
         lines.push("Currencies:");
-        payload.currencies.forEach((currency) => {
+        currencies.forEach((currency) => {
             lines.push(`- ${currency.name} (${currency.symbol})`);
         });
         lines.push("");
     }
     lines.push("Servers:");
-    payload.records.forEach((record, index) => {
+    records.forEach((record, index) => {
         lines.push(`\n#${index + 1} ${record.serverName}`);
         lines.push(`Server IP: ${record.serverIp}`);
         lines.push(`Hoster ID: ${record.hosterId}`);

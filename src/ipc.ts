@@ -19,6 +19,7 @@ import {
     importVaultEncrypted,
     listVaults,
     loadVault,
+    mergeVaultPayload,
     saveVault,
 } from "./vaults.js";
 
@@ -112,6 +113,15 @@ ipcMain.on("ipcCall", async function (_ev: IpcMainEvent, payload) {
             const [id, name, payloadBase64] = args as [string, string, string];
             if (!id || !name || !payloadBase64) return;
             ret = await importVaultEncrypted(id, name, payloadBase64);
+            break;
+        }
+        case "vaultsMerge": {
+            const [localPayload, incomingPayload] = args as [
+                ReturnType<typeof createDefaultPayload>,
+                ReturnType<typeof createDefaultPayload>,
+            ];
+            if (!localPayload || !incomingPayload) return;
+            ret = mergeVaultPayload(localPayload, incomingPayload);
             break;
         }
         case "getUpdateFeedUrl":
