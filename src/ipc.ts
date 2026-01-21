@@ -56,12 +56,13 @@ ipcMain.on("app_onAction", function (_ev: IpcMainEvent, payload) {
     }
 });
 
-ipcMain.on("ipcCall", async function (_ev: IpcMainEvent, payload) {
+ipcMain.on("ipcCall", async function (ev: IpcMainEvent, payload) {
     const store = Store.instance;
     if (!global.mainWindow || !store) return;
 
     const args = payload.args || [];
     let ret: any;
+    const replyTarget = ev.sender;
 
     switch (payload.name) {
         case "vaultsList":
@@ -275,14 +276,14 @@ ipcMain.on("ipcCall", async function (_ev: IpcMainEvent, payload) {
         }
 
         default:
-            global.mainWindow.webContents.send("ipcReply", {
+            replyTarget.send("ipcReply", {
                 id: payload.id,
                 error: "Unknown IPC Call: " + payload.name,
             });
             return;
     }
 
-    global.mainWindow?.webContents.send("ipcReply", {
+    replyTarget.send("ipcReply", {
         id: payload.id,
         reply: ret,
     });

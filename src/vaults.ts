@@ -6,9 +6,9 @@ Please see LICENSE files in the repository root for full details.
 */
 
 import { app } from "electron";
-import { promises as fs } from "fs";
-import path from "path";
-import crypto from "crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
 
 const VAULT_DIR_NAME = "vaults";
 const VAULT_INDEX_NAME = "index.json";
