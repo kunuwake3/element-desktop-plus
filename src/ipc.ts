@@ -11,6 +11,17 @@ import IpcMainEvent = Electron.IpcMainEvent;
 import { randomArray } from "./utils.js";
 import { getDisplayMediaCallback, setDisplayMediaCallback } from "./displayMediaCallback.js";
 import Store, { clearDataAndRelaunch } from "./store.js";
+import {
+    createDefaultPayload,
+    deleteVault,
+    exportVaultEncrypted,
+    exportVaultText,
+    importVaultEncrypted,
+    listVaults,
+    loadVault,
+    mergeVaultPayload,
+    saveVault,
+} from "./vaults.js";
 
 let focusHandlerAttached = false;
 ipcMain.on("loudNotification", function (): void {
@@ -53,6 +64,66 @@ ipcMain.on("ipcCall", async function (_ev: IpcMainEvent, payload) {
     let ret: any;
 
     switch (payload.name) {
+        case "vaultsList":
+            ret = await listVaults();
+            break;
+        case "vaultsCreate": {
+            const [id, name, password] = args as [string, string, string];
+            if (!id || !name || !password) return;
+            ret = await saveVault(id, name, password, createDefaultPayload());
+            break;
+        }
+        case "vaultsSave": {
+            const [id, name, password, payloadData] = args as [
+                string,
+                string,
+                string,
+                ReturnType<typeof createDefaultPayload>,
+            ];
+            if (!id || !name || !password) return;
+            ret = await saveVault(id, name, password, payloadData);
+            break;
+        }
+        case "vaultsLoad": {
+            const [id, password] = args as [string, string];
+            if (!id || !password) return;
+            ret = await loadVault(id, password);
+            break;
+        }
+        case "vaultsDelete": {
+            const [id] = args as [string];
+            if (!id) return;
+            await deleteVault(id);
+            ret = null;
+            break;
+        }
+        case "vaultsExportText": {
+            const [id, password] = args as [string, string];
+            if (!id || !password) return;
+            ret = await exportVaultText(id, password);
+            break;
+        }
+        case "vaultsExportEncrypted": {
+            const [id] = args as [string];
+            if (!id) return;
+            ret = await exportVaultEncrypted(id);
+            break;
+        }
+        case "vaultsImportEncrypted": {
+            const [id, name, payloadBase64] = args as [string, string, string];
+            if (!id || !name || !payloadBase64) return;
+            ret = await importVaultEncrypted(id, name, payloadBase64);
+            break;
+        }
+        case "vaultsMerge": {
+            const [localPayload, incomingPayload] = args as [
+                ReturnType<typeof createDefaultPayload>,
+                ReturnType<typeof createDefaultPayload>,
+            ];
+            if (!localPayload || !incomingPayload) return;
+            ret = mergeVaultPayload(localPayload, incomingPayload);
+            break;
+        }
         case "getUpdateFeedUrl":
             ret = autoUpdater.getFeedURL();
             break;
