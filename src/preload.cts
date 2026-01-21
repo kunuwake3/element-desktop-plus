@@ -50,6 +50,20 @@ contextBridge.exposeInMainWorld("electron", {
         }
         ipcRenderer.send(channel, ...args);
     },
+    once(channel: string, listener: (event: IpcRendererEvent, ...args: any[]) => void): void {
+        if (!CHANNELS.includes(channel)) {
+            console.error(`Unknown IPC channel ${channel} ignored`);
+            return;
+        }
+        ipcRenderer.once(channel, listener);
+    },
+    off(channel: string, listener: (event: IpcRendererEvent, ...args: any[]) => void): void {
+        if (!CHANNELS.includes(channel)) {
+            console.error(`Unknown IPC channel ${channel} ignored`);
+            return;
+        }
+        ipcRenderer.removeListener(channel, listener);
+    },
 
     async initialise(): Promise<{
         protocol: string;
